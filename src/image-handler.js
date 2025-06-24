@@ -85,31 +85,12 @@ class ImageHandler {
         buffer: Buffer.from(imageResponse.data),
         filename: `content-${keyword?.replace(/\s+/g, '-') || 'image'}-${Date.now()}.jpg`,
         alt: `Imagem relacionada a ${keyword}`,
-        credit: `Imagem do Pixabay por ${image.user}`,
-        url: image.webformatURL
+        credit: `Imagem do Pixabay por ${image.user}`
       };
     } catch (error) {
       console.error('Erro ao buscar imagem no Pixabay:', error);
       return null;
     }
-  }
-
-  insertImageInContent(content, imageUrl, imageAlt, imageCredit) {
-    // Divide o conteúdo em parágrafos
-    const paragraphs = content.split('\n\n').filter(p => p.trim());
-    
-    if (paragraphs.length < 3) {
-      console.log('⚠️ Conteúdo tem menos de 3 parágrafos, inserindo imagem no final');
-      return content + `\n\n![${imageAlt}](${imageUrl})\n*${imageCredit}*`;
-    }
-
-    // Insere a imagem após o terceiro parágrafo
-    const beforeImage = paragraphs.slice(0, 3).join('\n\n');
-    const afterImage = paragraphs.slice(3).join('\n\n');
-    
-    const imageBlock = `\n\n![${imageAlt}](${imageUrl})\n*${imageCredit}*\n\n`;
-    
-    return beforeImage + imageBlock + afterImage;
   }
 
   // Função para converter markdown para HTML (WordPress usa HTML)

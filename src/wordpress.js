@@ -17,10 +17,8 @@ class WordPressService {
         {
           title: postData.title,
           content: postData.content,
-          excerpt: postData.excerpt,
           status: 'publish',
           categories: await this.getCategoryId(postData.category),
-          tags: await this.getTagIds(postData.tags),
           featured_media: postData.featuredImageId || null
         },
         {
@@ -101,35 +99,6 @@ class WordPressService {
       console.error('Erro ao gerenciar categoria:', error);
       return [];
     }
-  }
-
-  async getTagIds(tagNames) {
-    const tagIds = [];
-    
-    for (const tagName of tagNames) {
-      try {
-        const response = await axios.get(
-          `${this.baseURL}/wp-json/wp/v2/tags?search=${tagName}`,
-          { auth: this.auth }
-        );
-
-        if (response.data.length > 0) {
-          tagIds.push(response.data[0].id);
-        } else {
-          // Criar tag se não existir
-          const newTag = await axios.post(
-            `${this.baseURL}/wp-json/wp/v2/tags`,
-            { name: tagName },
-            { auth: this.auth }
-          );
-          tagIds.push(newTag.data.id);
-        }
-      } catch (error) {
-        console.error(`Erro ao gerenciar tag ${tagName}:`, error);
-      }
-    }
-
-    return tagIds;
   }
 }
 
