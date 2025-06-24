@@ -14,24 +14,14 @@ class NotionService {
       const response = await notion.databases.query({
         database_id: process.env.NOTION_DATABASE_ID,
         filter: {
-          and: [
-            {
-              property: 'Status',
-              select: {
-                equals: 'Pronto para Publicar'
-              }
-            },
-            {
-              property: 'Published',
-              checkbox: {
-                equals: false
-              }
-            }
-          ]
+          property: 'Status wp',
+          select: {
+            equals: 'pronto'
+          }
         },
         sorts: [
           {
-            property: 'Data de Publicação',
+            property: 'data de publicacao',
             direction: 'ascending'
           }
         ]
@@ -47,13 +37,11 @@ class NotionService {
       
       return {
         id: page.id,
-        title: page.properties.Title?.title[0]?.plain_text || 'Sem título',
+        title: page.properties['Título do Esboço']?.title[0]?.plain_text || 'Sem título',
         content: content,
-        tags: page.properties.Tags?.multi_select?.map(tag => tag.name) || [],
-        category: page.properties.Category?.select?.name || 'Geral',
-        excerpt: page.properties.Excerpt?.rich_text[0]?.plain_text || '',
-        featuredImageKeyword: page.properties['Palavra-chave Imagem Destacada']?.rich_text[0]?.plain_text || '',
-        contentImageKeyword: page.properties['Palavra-chave Imagem Conteúdo']?.rich_text[0]?.plain_text || ''
+        category: page.properties.categoria?.select?.name || 'Geral',
+        featuredImageKeyword: page.properties.pcid?.rich_text[0]?.plain_text || '',
+        contentImageKeyword: page.properties.pcic?.rich_text[0]?.plain_text || ''
       };
     } catch (error) {
       console.error('Erro ao buscar posts do Notion:', error);
@@ -77,10 +65,12 @@ class NotionService {
       await notion.pages.update({
         page_id: pageId,
         properties: {
-          Published: {
-            checkbox: true
+          'Status wp': {
+            select: {
+              name: 'publicado'
+            }
           },
-          'Data de Publicação Real': {
+          'data de publicacao real': {
             date: {
               start: new Date().toISOString()
             }
