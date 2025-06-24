@@ -52,7 +52,8 @@ class NotionService {
         tags: page.properties.Tags?.multi_select?.map(tag => tag.name) || [],
         category: page.properties.Category?.select?.name || 'Geral',
         excerpt: page.properties.Excerpt?.rich_text[0]?.plain_text || '',
-        featuredImageKeyword: page.properties['Palavra-chave Imagem']?.rich_text[0]?.plain_text || ''
+        featuredImageKeyword: page.properties['Palavra-chave Imagem Destacada']?.rich_text[0]?.plain_text || '',
+        contentImageKeyword: page.properties['Palavra-chave Imagem Conteúdo']?.rich_text[0]?.plain_text || ''
       };
     } catch (error) {
       console.error('Erro ao buscar posts do Notion:', error);

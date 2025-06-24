@@ -2,8 +2,8 @@ name: Publicar Post Diário
 
 on:
   schedule:
-    - cron: '0 10 * * *' 
-  workflow_dispatch: 
+    - cron: '0 10 * * *' # Todo dia às 10:00 UTC (7:00 BRT)
+  workflow_dispatch: # Permite execução manual
 
 jobs:
   publish:
@@ -30,4 +30,5 @@ jobs:
         WORDPRESS_USERNAME: ${{ secrets.WORDPRESS_USERNAME }}
         WORDPRESS_APP_PASSWORD: ${{ secrets.WORDPRESS_APP_PASSWORD }}
         UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+        PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
       run: npm run publish

@@ -39,10 +39,11 @@ class WordPressService {
     }
   }
 
-  async uploadImage(imageBuffer, filename) {
+  async uploadImage(imageBuffer, filename, altText = '') {
     try {
       const formData = new FormData();
       formData.append('file', imageBuffer, filename);
+      formData.append('alt_text', altText);
 
       const response = await axios.post(
         `${this.baseURL}/wp-json/wp/v2/media`,
@@ -55,11 +56,25 @@ class WordPressService {
         }
       );
 
-      console.log('Imagem enviada com sucesso');
+      console.log(`✅ Imagem "${filename}" enviada com sucesso`);
       return response.data.id;
     } catch (error) {
       console.error('Erro ao enviar imagem:', error.response?.data || error.message);
       throw error;
+    }
+  }
+
+  async getImageUrl(imageId) {
+    try {
+      const response = await axios.get(
+        `${this.baseURL}/wp-json/wp/v2/media/${imageId}`,
+        { auth: this.auth }
+      );
+
+      return response.data.source_url;
+    } catch (error) {
+      console.error('Erro ao buscar URL da imagem:', error);
+      return null;
     }
   }
 
@@ -74,7 +89,7 @@ class WordPressService {
         return [response.data[0].id];
       }
 
-      
+      // Criar categoria se não existir
       const newCategory = await axios.post(
         `${this.baseURL}/wp-json/wp/v2/categories`,
         { name: categoryName },
@@ -101,7 +116,7 @@ class WordPressService {
         if (response.data.length > 0) {
           tagIds.push(response.data[0].id);
         } else {
-          
+          // Criar tag se não existir
           const newTag = await axios.post(
             `${this.baseURL}/wp-json/wp/v2/tags`,
             { name: tagName },
