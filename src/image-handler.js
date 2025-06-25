@@ -10,13 +10,12 @@ class ImageHandler {
     async getPexelsImage(keyword) {
         try {
             console.log(`🔍 Buscando imagem destacada no Pexels: "${keyword}"`);
-            
             const response = await axios.get('https://api.pexels.com/v1/search', {
                 headers: {
                     'Authorization': this.pexelsApiKey
                 },
                 params: {
-                    query: keyword,
+                    query: 'nature landscape',
                     per_page: 1,
                     orientation: 'landscape',
                     size: 'large'
@@ -38,7 +37,6 @@ class ImageHandler {
                     .toBuffer();
 
                 console.log(`✅ Imagem encontrada: ${photo.alt || 'Sem descrição'}`);
-
                 return {
                     buffer: processedBuffer,
                     filename: `pexels-${photo.id}-${Date.now()}.jpg`,
@@ -49,6 +47,7 @@ class ImageHandler {
 
             console.log('❌ Nenhuma imagem encontrada no Pexels');
             return null;
+
         } catch (error) {
             console.error('Erro ao buscar imagem no Pexels:', error.message);
             return null;
@@ -58,14 +57,13 @@ class ImageHandler {
     async getPixabayImage(keyword) {
         try {
             console.log(`🔍 Buscando imagem de conteúdo no Pixabay: "${keyword}"`);
-            
             const response = await axios.get('https://pixabay.com/api/', {
                 params: {
                     key: this.pixabayApiKey,
-                    q: keyword,
+                    q: 'nature landscape',
                     image_type: 'photo',
                     orientation: 'horizontal',
-                    category: 'people',
+                    category: 'nature',
                     safesearch: 'true',
                     per_page: 3,
                     min_width: 800,
@@ -88,7 +86,6 @@ class ImageHandler {
                     .toBuffer();
 
                 console.log(`✅ Imagem encontrada: ${image.tags}`);
-
                 return {
                     buffer: processedBuffer,
                     filename: `pixabay-${image.id}-${Date.now()}.jpg`,
@@ -99,6 +96,7 @@ class ImageHandler {
 
             console.log('❌ Nenhuma imagem encontrada no Pixabay');
             return null;
+
         } catch (error) {
             console.error('Erro ao buscar imagem no Pixabay:', error.message);
             return null;
