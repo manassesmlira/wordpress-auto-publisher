@@ -6,83 +6,95 @@ require('dotenv').config();
 async function main() {
   try {
     console.log('🚀 Iniciando publicação automática...');
-
+    
     const notionService = new NotionService();
-    const wordpressService = new WordPressService();
+    const wordpressService = new WordPressService(
+      process.env.WORDPRESS_URL,
+      process.env.WORDPRESS_USERNAME,
+      process.env.WORDPRESS_APP_PASSWORD
+    );
     const imageHandler = new ImageHandler();
-
+    
     // Buscar próximo post para publicar
     const post = await notionService.getNextPostToPublish();
-    
     if (!post) {
       console.log('✅ Nenhum post para publicar hoje');
       return;
     }
-
+    
     console.log(`📝 Post encontrado: ${post.title}`);
-
+    
     // 1. Buscar e processar imagem destacada (Unsplash)
     let featuredImageId = null;
     if (post.featuredImageKeyword) {
       console.log('🖼️ Processando imagem destacada...');
-      const featuredImage = await imageHandler.getUnsplashImage(post.featuredImageKeyword);
-      
-      if (featuredImage) {
-        featuredImageId = await wordpressService.uploadImage(
-          featuredImage.buffer, 
-          featuredImage.filename,
-          featuredImage.alt
-        );
-        console.log('✅ Imagem destacada enviada');
+      try {
+        const featuredImage = await imageHandler.getUnsplashImage(post.featuredImageKeyword);
+        if (featuredImage) {
+          featuredImageId = await wordpressService.uploadImage(
+            featuredImage.buffer,
+            featuredImage.filename
+          );
+          console.log('✅ Imagem destacada enviada');
+        }
+      } catch (error) {
+        console.log('⚠️ Erro ao processar imagem destacada, continuando sem ela');
       }
     }
-
+    
     // 2. Buscar e processar imagem de conteúdo (Pixabay)
-    let processedContent = post.content;
+    let contentImageId = null;
     if (post.contentImageKeyword) {
       console.log('🖼️ Processando imagem de conteúdo...');
-      const contentImage = await imageHandler.getPixabayImage(post.contentImageKeyword);
-      
-      if (contentImage) {
-        // Upload da imagem para WordPress
-        const contentImageId = await wordpressService.uploadImage(
-          contentImage.buffer,
-          contentImage.filename,
-          contentImage.alt
-        );
+      try {
+        // Melhorar palavras-chave para ter mais sucesso
+        const keywords = [
+          post.contentImageKeyword,
+          'igreja',
+          'jovem cristão',
+          'namoro cristão',
+          'casal jovem',
+          'relacionamento'
+        ];
         
-        // Buscar URL da imagem no WordPress
-        const imageUrl = await wordpressService.getImageUrl(contentImageId);
+        let contentImage = null;
+        for (const keyword of keywords) {
+          console.log(`🔍 Tentando buscar com: "${keyword}"`);
+          contentImage = await imageHandler.getPixabayImage(keyword);
+          if (contentImage) break;
+        }
         
-        // Inserir imagem no conteúdo
-        processedContent = imageHandler.convertMarkdownImageToHtml(
-          processedContent,
-          imageUrl,
-          contentImage.alt,
-          contentImage.credit
-        );
-        
-        console.log('✅ Imagem de conteúdo inserida no terceiro parágrafo');
+        if (contentImage) {
+          contentImageId = await wordpressService.uploadImage(
+            contentImage.buffer,
+            contentImage.filename
+          );
+          console.log('✅ Imagem de conteúdo enviada');
+        }
+      } catch (error) {
+        console.log('⚠️ Erro ao processar imagem de conteúdo, continuando sem ela');
       }
     }
-
+    
     // 3. Publicar no WordPress
     console.log('📤 Publicando no WordPress...');
-    const publishedPost = await wordpressService.createPost({
-      ...post,
-      content: processedContent,
-      featuredImageId
-    });
-
+    const postUrl = await wordpressService.publishPost(
+      post.title, 
+      post.content, 
+      featuredImageId, 
+      contentImageId, 
+      post.category || 'Namoro Cristão'
+    );
+    
     // 4. Marcar como publicado no Notion
     await notionService.markAsPublished(post.id);
-
+    
     console.log('🎉 Post publicado com sucesso!');
-    console.log(`🔗 Link: ${publishedPost.link}`);
+    console.log(`🔗 Link: ${postUrl}`);
     console.log(`📊 Estatísticas:`);
-    console.log(`   - Imagem destacada: ${featuredImageId ? '✅' : '❌'}`);
-    console.log(`   - Imagem no conteúdo: ${processedContent !== post.content ? '✅' : '❌'}`);
-
+    console.log(` - Imagem destacada: ${featuredImageId ? '✅' : '❌'}`);
+    console.log(` - Imagem no conteúdo: ${contentImageId ? '✅' : '❌'}`);
+    
   } catch (error) {
     console.error('❌ Erro durante a publicação:', error);
     process.exit(1);
