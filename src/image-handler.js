@@ -1,120 +1,109 @@
 const axios = require('axios');
+const sharp = require('sharp');
 
 class ImageHandler {
-  async getUnsplashImage(keyword) {
-    if (!process.env.UNSPLASH_ACCESS_KEY) {
-      console.log('Chave do Unsplash não configurada');
-      return null;
+    constructor() {
+        this.pexelsApiKey = process.env.PEXELS_API_KEY;
+        this.pixabayApiKey = process.env.PIXABAY_API_KEY;
     }
 
-    try {
-      console.log(`🔍 Buscando imagem destacada no Unsplash: "${keyword}"`);
-      
-      const response = await axios.get('https://api.unsplash.com/search/photos', {
-        params: {
-          query: keyword || 'article blog post',
-          per_page: 1,
-          orientation: 'landscape',
-          order_by: 'relevant'
-        },
-        headers: {
-          Authorization: `Client-ID ${process.env.UNSPLASH_ACCESS_KEY}`
+    async getPexelsImage(keyword) {
+        try {
+            console.log(`🔍 Buscando imagem destacada no Pexels: "${keyword}"`);
+            
+            const response = await axios.get('https://api.pexels.com/v1/search', {
+                headers: {
+                    'Authorization': this.pexelsApiKey
+                },
+                params: {
+                    query: keyword,
+                    per_page: 1,
+                    orientation: 'landscape',
+                    size: 'large'
+                }
+            });
+
+            if (response.data.photos && response.data.photos.length > 0) {
+                const photo = response.data.photos[0];
+                
+                // Download da imagem
+                const imageResponse = await axios.get(photo.src.large, {
+                    responseType: 'arraybuffer'
+                });
+
+                // Processar com Sharp
+                const processedBuffer = await sharp(imageResponse.data)
+                    .resize(1200, 675, { fit: 'cover' })
+                    .jpeg({ quality: 85 })
+                    .toBuffer();
+
+                console.log(`✅ Imagem encontrada: ${photo.alt || 'Sem descrição'}`);
+
+                return {
+                    buffer: processedBuffer,
+                    filename: `pexels-${photo.id}-${Date.now()}.jpg`,
+                    alt: photo.alt || keyword,
+                    credit: `Foto de ${photo.photographer} no Pexels`
+                };
+            }
+
+            console.log('❌ Nenhuma imagem encontrada no Pexels');
+            return null;
+        } catch (error) {
+            console.error('Erro ao buscar imagem no Pexels:', error.message);
+            return null;
         }
-      });
-
-      if (response.data.results.length === 0) {
-        console.log('❌ Nenhuma imagem encontrada no Unsplash');
-        return null;
-      }
-
-      const image = response.data.results[0];
-      console.log(`✅ Imagem encontrada: ${image.alt_description || 'Sem descrição'}`);
-      
-      const imageResponse = await axios.get(image.urls.regular, {
-        responseType: 'arraybuffer'
-      });
-
-      return {
-        buffer: Buffer.from(imageResponse.data),
-        filename: `featured-${keyword?.replace(/\s+/g, '-') || 'image'}-${Date.now()}.jpg`,
-        alt: image.alt_description || `Imagem sobre ${keyword}`,
-        credit: `Foto de ${image.user.name} no Unsplash`
-      };
-    } catch (error) {
-      console.error('Erro ao buscar imagem no Unsplash:', error);
-      return null;
-    }
-  }
-
-  async getPixabayImage(keyword) {
-    if (!process.env.PIXABAY_API_KEY) {
-      console.log('Chave do Pixabay não configurada');
-      return null;
     }
 
-    try {
-      console.log(`🔍 Buscando imagem de conteúdo no Pixabay: "${keyword}"`);
-      
-      const response = await axios.get('https://pixabay.com/api/', {
-        params: {
-          key: process.env.PIXABAY_API_KEY,
-          q: keyword || 'business article',
-          image_type: 'photo',
-          orientation: 'horizontal',
-          category: 'business',
-          min_width: 1200,
-          min_height: 800,
-          per_page: 3,
-          safesearch: 'true'
+    async getPixabayImage(keyword) {
+        try {
+            console.log(`🔍 Buscando imagem de conteúdo no Pixabay: "${keyword}"`);
+            
+            const response = await axios.get('https://pixabay.com/api/', {
+                params: {
+                    key: this.pixabayApiKey,
+                    q: keyword,
+                    image_type: 'photo',
+                    orientation: 'horizontal',
+                    category: 'people',
+                    safesearch: 'true',
+                    per_page: 3,
+                    min_width: 800,
+                    min_height: 600
+                }
+            });
+
+            if (response.data.hits && response.data.hits.length > 0) {
+                const image = response.data.hits[0];
+                
+                // Download da imagem
+                const imageResponse = await axios.get(image.webformatURL, {
+                    responseType: 'arraybuffer'
+                });
+
+                // Processar com Sharp
+                const processedBuffer = await sharp(imageResponse.data)
+                    .resize(800, 600, { fit: 'cover' })
+                    .jpeg({ quality: 80 })
+                    .toBuffer();
+
+                console.log(`✅ Imagem encontrada: ${image.tags}`);
+
+                return {
+                    buffer: processedBuffer,
+                    filename: `pixabay-${image.id}-${Date.now()}.jpg`,
+                    alt: image.tags,
+                    credit: 'Imagem do Pixabay'
+                };
+            }
+
+            console.log('❌ Nenhuma imagem encontrada no Pixabay');
+            return null;
+        } catch (error) {
+            console.error('Erro ao buscar imagem no Pixabay:', error.message);
+            return null;
         }
-      });
-
-      if (response.data.hits.length === 0) {
-        console.log('❌ Nenhuma imagem encontrada no Pixabay');
-        return null;
-      }
-
-      const image = response.data.hits[0];
-      console.log(`✅ Imagem encontrada: ${image.tags}`);
-      
-      const imageResponse = await axios.get(image.webformatURL, {
-        responseType: 'arraybuffer'
-      });
-
-      return {
-        buffer: Buffer.from(imageResponse.data),
-        filename: `content-${keyword?.replace(/\s+/g, '-') || 'image'}-${Date.now()}.jpg`,
-        alt: `Imagem relacionada a ${keyword}`,
-        credit: `Imagem do Pixabay por ${image.user}`
-      };
-    } catch (error) {
-      console.error('Erro ao buscar imagem no Pixabay:', error);
-      return null;
     }
-  }
-
-  // Função para converter markdown para HTML (WordPress usa HTML)
-  convertMarkdownImageToHtml(content, imageUrl, imageAlt, imageCredit) {
-    const paragraphs = content.split('\n\n').filter(p => p.trim());
-    
-    if (paragraphs.length < 3) {
-      const imageHtml = `\n\n<figure class="wp-block-image size-large">
-        <img src="${imageUrl}" alt="${imageAlt}" />
-        <figcaption><em>${imageCredit}</em></figcaption>
-      </figure>`;
-      return content + imageHtml;
-    }
-
-    const beforeImage = paragraphs.slice(0, 3).join('\n\n');
-    const afterImage = paragraphs.slice(3).join('\n\n');
-    
-    const imageHtml = `\n\n<figure class="wp-block-image size-large">
-      <img src="${imageUrl}" alt="${imageAlt}" />
-      <figcaption><em>${imageCredit}</em></figcaption>
-    </figure>\n\n`;
-    
-    return beforeImage + imageHtml + afterImage;
-  }
 }
 
 module.exports = ImageHandler;

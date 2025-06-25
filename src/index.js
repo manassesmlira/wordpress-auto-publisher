@@ -24,12 +24,12 @@ async function main() {
     
     console.log(`📝 Post encontrado: ${post.title}`);
     
-    // 1. Buscar e processar imagem destacada (Unsplash)
+   // 1. Buscar e processar imagem destacada (Pexels)
     let featuredImageId = null;
     if (post.featuredImageKeyword) {
       console.log('🖼️ Processando imagem destacada...');
       try {
-        const featuredImage = await imageHandler.getUnsplashImage(post.featuredImageKeyword);
+        const featuredImage = await imageHandler.getPexelsImage(post.featuredImageKeyword);
         if (featuredImage) {
           featuredImageId = await wordpressService.uploadImage(
             featuredImage.buffer,

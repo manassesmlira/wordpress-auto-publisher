@@ -12,6 +12,7 @@
     "axios": "^1.6.0",
     "dotenv": "^16.3.1",
     "form-data": "^4.0.0",
-    "notion-to-md": "^3.1.1"
+    "notion-to-md": "^3.1.1",
+    "sharp": "^0.34.2"
   }
 }
