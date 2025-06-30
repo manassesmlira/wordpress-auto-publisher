@@ -5,10 +5,13 @@ class WordPressHandler {
         this.auth = Buffer.from(`${username}:${password}`).toString('base64');
     }
    
-  formatContent(content) {
+ formatContent(content) {
     if (!content) return '';
-    
     let formatted = content
+        // NOVO: Converter títulos markdown (## e ###) - DEVE VIR PRIMEIRO
+        .replace(/^###\s+(.*?)$/gm, '<h3>$1</h3>')
+        .replace(/^##\s+(.*?)$/gm, '<h2>$1</h2>')
+        
         // NOVO: Converter tabelas markdown para HTML
         .replace(/\|(.+)\|\n\|[\s\-\|:]+\|\n((?:\|.+\|\n?)*)/g, (match, header, rows) => {
             // Processar cabeçalho
@@ -33,7 +36,10 @@ class WordPressHandler {
             return `<table class="wp-block-table"><thead><tr>${headerCells}</tr></thead><tbody>${dataRows}</tbody></table>`;
         })
         
-        // Converter títulos com emojis para H2
+        // Converter títulos personalizados com dois pontos (ex: **Capítulos 37–50:**)
+        .replace(/^\*\*(.*?):\*\*$/gm, '<h2>$1:</h2>')
+        
+        // Converter títulos com emojis para H2 (linha completa)
         .replace(/^\*\*(.*?)\*\*$/gm, '<h2>$1</h2>')
         
         // Converter subtítulos começando com emoji para H3
@@ -48,7 +54,7 @@ class WordPressHandler {
         // Agrupar listas consecutivas
         .replace(/(<li>.*?<\/li>\s*?\n)+/gs, '<ul>$&</ul>')
         
-        // Melhorar formatação de negrito
+        // Melhorar formatação de negrito (inline)
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         
         // Melhorar formatação de itálico
@@ -64,14 +70,20 @@ class WordPressHandler {
         // Limpar parágrafos vazios
         .replace(/<p>\s*<\/p>/g, '')
         
+        // Limpar parágrafos que contêm apenas títulos
+        .replace(/<p>(<h[1-6].*?<\/h[1-6]>)<\/p>/g, '$1')
+        
         // Limpar parágrafos que contêm apenas tabelas
         .replace(/<p>(<table.*?<\/table>)<\/p>/g, '$1')
         
         // Melhorar espaçamento de citações bíblicas
         .replace(/\*"(.*?)"\*\s*\((.*?)\)/g, '<blockquote><em>"$1"</em><br><strong>($2)</strong></blockquote>')
         
-        // Melhorar formatação de links
-        .replace(/🔗\s*(.*?):\s*(https?:\/\/[^\s]+)/g, '<p><strong>🔗 $1:</strong><br><a href="$2" target="_blank">$2</a></p>');
+        // Melhorar formatação de links com target="_blank"
+        .replace(/🔗\s*(.*?):\s*(https?:\/\/[^\s]+)/g, '<p><strong>🔗 $1:</strong><br><a href="$2" target="_blank" rel="noopener">$2</a></p>')
+        
+        // Converter links externos gerais para abrir em nova página
+        .replace(/<a href="(https?:\/\/[^"]+)"(?![^>]*target=)/g, '<a href="$1" target="_blank" rel="noopener"');
     
     return formatted;
 }
