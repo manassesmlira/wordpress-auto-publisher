@@ -9,6 +9,93 @@ class WordPressHandler {
         this.cacheExpiry = 24 * 60 * 60 * 1000; // 24 horas em ms
     }
 
+    // ========== FUNÇÕES ORIGINAIS (MANTIDAS) ==========
+    
+    formatContent(content) {
+        console.log('📝 Formatando conteúdo...');
+        
+        const formatted = content
+            // Converter títulos markdown para HTML
+            .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+            .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+            .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+            
+            // Converter formatação em negrito e itálico ANTES de processar links
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            
+            // Converter listas
+            .replace(/^\* (.*$)/gm, '<li>$1</li>')
+            .replace(/^- (.*$)/gm, '<li>$1</li>')
+            .replace(/^(\d+)\. (.*$)/gm, '<li>$1. $2</li>')
+            
+            // Agrupar itens de lista em tags <ul>
+            .replace(/(<li>.*<\/li>)/s, function(match) {
+                if (match.includes('<li>')) {
+                    return '<ul>' + match + '</ul>';
+                }
+                return match;
+            })
+            
+            // Converter quebras de linha em parágrafos, mas preservar HTML existente
+            .split('\n\n')
+            .map(paragraph => {
+                paragraph = paragraph.trim();
+                if (!paragraph) return '';
+                
+                // Se já é HTML (contém tags), não envolver em <p>
+                if (paragraph.includes('<h') || paragraph.includes('<ul') || 
+                    paragraph.includes('<ol') || paragraph.includes('<li') ||
+                    paragraph.includes('<blockquote') || paragraph.includes('<div') ||
+                    paragraph.includes('<table') || paragraph.includes('<figure')) {
+                    return paragraph;
+                }
+                
+                // Caso contrário, envolver em <p>
+                return `<p>${paragraph}</p>`;
+            })
+            .join('\n\n')
+            
+            // Limpar múltiplas quebras de linha
+            .replace(/\n{3,}/g, '\n\n')
+            
+            // Converter citações bíblicas em blockquotes
+            .replace(/^> (.*$)/gm, '<blockquote>$1</blockquote>')
+            
+            // Melhorar formatação de versículos
+            .replace(/\*"(.*?)"\*\s*\((.*?)\)/g, '<blockquote><em>"$1"</em><br><strong>($2)</strong></blockquote>')
+            
+            // Converter links markdown para HTML
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+            
+            // Melhorar formatação de links com emojis
+            .replace(/🔗\s*(.*?):\s*(https?:\/\/[^\s]+)/g, '<p><strong>🔗 $1:</strong><br><a href="$2" target="_blank" rel="noopener">$2</a></p>')
+            
+            // Converter links simples em HTML
+            .replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>')
+            
+            // Limpar parágrafos vazios
+            .replace(/<p>\s*<\/p>/g, '')
+            
+            // Garantir que títulos não estejam dentro de parágrafos
+            .replace(/<p>(<h[1-6].*?<\/h[1-6]>)<\/p>/g, '$1')
+            
+            // Garantir que listas não estejam dentro de parágrafos
+            .replace(/<p>(<ul>.*?<\/ul>)<\/p>/gs, '$1')
+            
+            // Garantir que blockquotes não estejam dentro de parágrafos
+            .replace(/<p>(<blockquote>.*?<\/blockquote>)<\/p>/gs, '$1')
+            
+            // Limpar espaços em excesso
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        console.log('✅ Conteúdo formatado com sucesso');
+        return formatted;
+    }
+
+    // ========== NOVAS FUNÇÕES (ADICIONADAS) ==========
+
     // Cache dos posts existentes para links internos
     async updatePostsCache() {
         try {
@@ -153,32 +240,44 @@ class WordPressHandler {
         return `https://www.bible.com/pt/bible/1608/${reference}.ARC`;
     }
 
-    // Adicionar links internos
+    // Adicionar links internos (SEM MODIFICAR TÍTULOS)
     addInternalLinks(content, title) {
         const relatedPosts = this.findRelatedPosts(content, title);
         
         if (relatedPosts.length === 0) return content;
 
         let processedContent = content;
+        const usedLinks = new Set(); // Evitar links duplicados
 
         // Adicionar links baseados em palavras-chave matchadas
         relatedPosts.forEach(post => {
             post.matchedKeywords.forEach(keyword => {
-                const regex = new RegExp(`\\b(${keyword})\\b`, 'gi');
-                let replaced = false;
+                if (usedLinks.has(keyword)) return; // Evitar duplicatas
 
-                processedContent = processedContent.replace(regex, (match, word) => {
-                    // Evitar múltiplas substituições e links dentro de links
-                    if (replaced || match.includes('<a ') || match.includes('</a>')) {
+                // REGEX MELHORADA - Evita títulos HTML
+                const regex = new RegExp(`(?<!<h[1-6][^>]*>.*?)\\b(${keyword})\\b(?!.*?<\/h[1-6]>)`, 'gi');
+                let replacementCount = 0;
+
+                processedContent = processedContent.replace(regex, (match, word, offset, string) => {
+                    // Verificar se não está dentro de um link ou título
+                    const before = string.substring(0, offset);
+                    const after = string.substring(offset);
+                    
+                    // Evitar se já está em um link ou título
+                    if (before.includes('<a ') && !before.includes('</a>') || 
+                        before.includes('<h') && !before.includes('</h') ||
+                        replacementCount > 0) { // Só uma substituição por palavra
                         return match;
                     }
-                    replaced = true;
+
+                    replacementCount++;
+                    usedLinks.add(keyword);
                     return `<a href="${post.link}" title="Leia mais sobre: ${post.title}">${match}</a>`;
                 });
             });
         });
 
-        // Adicionar seção de posts relacionados no final (opcional)
+        // Adicionar seção de posts relacionados no final
         if (relatedPosts.length > 0) {
             const relatedSection = `
 <div class="related-posts" style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-left: 4px solid #007cba;">
@@ -202,83 +301,22 @@ ${relatedPosts.map(post => `<li><a href="${post.link}">${post.title}</a></li>`).
             // 1. Atualizar cache de posts
             await this.updatePostsCache();
             
-            // 2. Adicionar links externos (referências bíblicas)
-            let enhanced = this.addExternalBibleLinks(content);
+            // 2. Adicionar links para referências bíblicas
+            let enhancedContent = this.addExternalBibleLinks(content);
             
             // 3. Adicionar links internos
-            enhanced = this.addInternalLinks(enhanced, title);
+            enhancedContent = this.addInternalLinks(enhancedContent, title);
             
-            console.log('✅ Links adicionados com sucesso');
-            return enhanced;
+            console.log('✅ Conteúdo melhorado com links');
+            return enhancedContent;
             
         } catch (error) {
-            console.error('⚠️ Erro ao adicionar links:', error.message);
-            return content; // Retorna conteúdo original se falhar
+            console.error('⚠️ Erro ao melhorar conteúdo:', error.message);
+            return content; // Retorna conteúdo original em caso de erro
         }
     }
 
-    formatContent(content) {
-        if (!content) return '';
-        let formatted = content
-            // NOVO: Converter títulos markdown (## e ###) - DEVE VIR PRIMEIRO
-            .replace(/^###\s+(.*?)$/gm, '<h3>$1</h3>')
-            .replace(/^##\s+(.*?)$/gm, '<h2>$1</h2>')
-            // NOVO: Converter tabelas markdown para HTML
-            .replace(/\|(.+)\|\n\|[\s\-\|:]+\|\n((?:\|.+\|\n?)*)/g, (match, header, rows) => {
-                // Processar cabeçalho
-                const headerCells = header.split('|')
-                    .map(cell => cell.trim())
-                    .filter(cell => cell !== '')
-                    .map(cell => `<th>${cell}</th>`)
-                    .join('');
-                // Processar linhas de dados
-                const dataRows = rows.trim().split('\n')
-                    .map(row => {
-                        const cells = row.split('|')
-                            .map(cell => cell.trim())
-                            .filter(cell => cell !== '')
-                            .map(cell => `<td>${cell}</td>`)
-                            .join('');
-                        return `<tr>${cells}</tr>`;
-                    })
-                    .join('');
-                return `<table class="wp-block-table"><thead><tr>${headerCells}</tr></thead><tbody>${dataRows}</tbody></table>`;
-            })
-            // Converter títulos personalizados com dois pontos (ex: **Capítulos 37–50:**)
-            .replace(/^\*\*(.*?):\*\*$/gm, '<h2>$1:</h2>')
-            // Converter títulos com emojis para H2 (linha completa)
-            .replace(/^\*\*(.*?)\*\*$/gm, '<h2>$1</h2>')
-            // Converter subtítulos começando com emoji para H3
-            .replace(/^([🔹💡⚠️📌]\s*\*\*.*?\*\*)/gm, '<h3>$1</h3>')
-            // Converter listas com emojis numerados para HTML
-            .replace(/^(\d️⃣\s*\*\*.*?\*\*.*?)$/gm, '<li><strong>$1</strong></li>')
-            // Converter listas com bullets emoji para HTML
-            .replace(/^[-•]\s*(.*?)$/gm, '<li>$1</li>')
-            // Agrupar listas consecutivas
-            .replace(/(<li>.*?<\/li>\s*?\n)+/gs, '<ul>$&</ul>')
-            // Melhorar formatação de negrito (inline)
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            // Melhorar formatação de itálico
-            .replace(/\*(.*?)\*/g, '<em>$1</em>')
-            // Converter quebras duplas em parágrafos
-            .replace(/\n\n/g, '</p><p>')
-            // Adicionar parágrafos no início e fim
-            .replace(/^/, '<p>')
-            .replace(/$/, '</p>')
-            // Limpar parágrafos vazios
-            .replace(/<p>\s*<\/p>/g, '')
-            // Limpar parágrafos que contêm apenas títulos
-            .replace(/<p>(<h[1-6].*?<\/h[1-6]>)<\/p>/g, '$1')
-            // Limpar parágrafos que contêm apenas tabelas
-            .replace(/<p>(<table.*?<\/table>)<\/p>/g, '$1')
-            // Melhorar espaçamento de citações bíblicas
-            .replace(/\*"(.*?)"\*\s*\((.*?)\)/g, '<blockquote><em>"$1"</em><br><strong>($2)</strong></blockquote>')
-            // Melhorar formatação de links com target="_blank"
-            .replace(/🔗\s*(.*?):\s*(https?:\/\/[^\s]+)/g, '<p><strong>🔗 $1:</strong><br><a href="$2" target="_blank" rel="noopener">$2</a></p>')
-            // Converter links externos gerais para abrir em nova página
-            .replace(/<a href="(https?:\/\/[^"]+)"(?![^>]*target=)/g, '<a href="$1" target="_blank" rel="noopener"');
-        return formatted;
-    }
+    // ========== FUNÇÕES ORIGINAIS RESTANTES ==========
 
     async publishPost(title, content, featuredImageId = null, contentImageId = null, category = 'Uncategorized') {
         try {
