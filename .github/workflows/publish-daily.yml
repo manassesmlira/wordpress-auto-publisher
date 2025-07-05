@@ -2,6 +2,8 @@ name: Publicar Post Diário
 on:
   schedule:
     - cron: '0 10 * * *' # Todo dia às 10:00 UTC (7:00 BRT)
+    - cron: '0 14 * * *' 
+    - cron: '0 18 * * *' 
   workflow_dispatch: # Permite execução manual
 
 jobs:
