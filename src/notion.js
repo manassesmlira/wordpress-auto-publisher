@@ -32,7 +32,7 @@ class NotionService {
         return null;
       }
 
-      const page = response.results[0];
+      const page = response.results[response.results.length - 1];
       const content = await this.getPageContent(page.id);
       
       return {

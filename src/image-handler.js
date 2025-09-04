@@ -144,7 +144,7 @@ class ImageHandler {
                 return null;
             }
 
-            const prompt = this.generateAIPrompt(title, content, 'featured');
+            const prompt = 'open holy bible on wooden table, golden divine light, sacred scriptures visible, devotional reading scene';
             console.log('🎨 Gerando imagem destacada (Flux Schnell)...');
             console.log(`🎯 Prompt: ${prompt}`);
 
